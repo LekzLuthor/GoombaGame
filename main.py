@@ -122,6 +122,21 @@ class Goomba(Obstacle):
     def death(self):
         obstacles.pop()
 
+
+class SmallObstacle(Obstacle):
+    def __init__(self, image):
+        self.type = random.randint(0, 2)
+        super(SmallObstacle, self).__init__(image, self.type)
+        self.rect.y = 500
+
+
+class LargeObstacle(Obstacle):
+    def __init__(self, image):
+        self.type = random.randint(0, 2)
+        super(LargeObstacle, self).__init__(image, self.type)
+        self.rect.y = 480
+
+
 class Cloud:
     def __init__(self):
         self.cloud_oscillation_down = 0
@@ -208,8 +223,8 @@ def main():
                 obstacle.is_dead = True
                 obstacle.image = GUMBA_DEATH
                 points += 10
-                game_speed += 1
-                obstacle.death()
+                # game_speed += 1
+                # obstacle.death()
 
         cloud1.draw(SCREEN)
         cloud1.update()
