@@ -23,9 +23,17 @@ GUMBA_RUN_FRAMES = [pygame.image.load(os.path.join("Sprites/Gumba", "Gumba1.png"
 
 GUMBA_DEATH = pygame.image.load(os.path.join("Sprites/Gumba", "Gumba_death.png"))
 
+SMALL_SPIKES = [pygame.image.load(os.path.join("Sprites/Spikes/SmallSpikes", "SmallSpike0.png")),
+                pygame.image.load(os.path.join("Sprites/Spikes/SmallSpikes", "SmallSpike1.png")),
+                pygame.image.load(os.path.join("Sprites/Spikes/SmallSpikes", "SmallSpike2.png"))]
+
+LARGE_SPIKES = [pygame.image.load(os.path.join("Sprites/Spikes/LargeSpikes", "LargeSpike1.png")),
+                pygame.image.load(os.path.join("Sprites/Spikes/LargeSpikes", "LargeSpike2.png")),
+                pygame.image.load(os.path.join("Sprites/Spikes/LargeSpikes", "LargeSpike3.png"))]
+
 # goomba
 
-BACKGROUND = pygame.image.load('Sprites/Decorations/Background_full2.png')
+BACKGROUND = pygame.image.load('Sprites/Decorations/Background_grass.png')
 
 
 class Player:
@@ -89,7 +97,7 @@ class Player:
 class Obstacle:
     def __init__(self, image, type):
         self.image = image
-        self.type = type  #
+        self.type = type  # goomba - 0
         self.rect = self.image[self.type].get_rect()
         self.rect.x = SCREEN_WIDTH
 
@@ -102,39 +110,60 @@ class Obstacle:
         SCREEN.blit(self.image[self.type], self.rect)
 
 
-class Goomba(Obstacle):
+class Goomba:
     def __init__(self, image):
+
+        self.offset = random.randint(300, 1000)
+
+        self.image = image
         self.type = 0
-        super().__init__(image, self.type)
-        self.rect.y = 500
+        self.rect = self.image[self.type].get_rect()
+        self.rect.x = SCREEN_WIDTH + self.offset
+
+        self.kill_hit_box = self.image[self.type].get_rect()
+        self.kill_hit_box.width = 40
+        self.kill_hit_box.height = 40
+        self.kill_hit_box.y = 533
+        self.kill_hit_box.x = SCREEN_WIDTH + 20 + self.offset
+
+        self.rect.y = 540
         self.animation_index = 0
         self.is_dead = False
+
+    def update(self):
+        self.rect.x -= game_speed
+        self.kill_hit_box.x -= game_speed
+        if self.rect.x < random.randint(-1000, -400):
+            goombas_ob.pop()
 
     def draw(self, SCREEN):
         if self.animation_index >= 9:
             self.animation_index = 0
         if self.is_dead:
-            SCREEN.blit(self.image, self.rect)
+            SCREEN.blit(self.image, self.kill_hit_box)
         else:
             SCREEN.blit(self.image[self.animation_index // 5], self.rect)
         self.animation_index += 1
+        # pygame.draw.rect(SCREEN, (255, 0, 0), self.rect, 2)
+        # pygame.draw.rect(SCREEN, (0, 255, 0), self.kill_hit_box, 2)
 
     def death(self):
-        obstacles.pop()
+        self.is_dead = True
+        self.image = GUMBA_DEATH
 
 
 class SmallObstacle(Obstacle):
     def __init__(self, image):
         self.type = random.randint(0, 2)
         super(SmallObstacle, self).__init__(image, self.type)
-        self.rect.y = 500
+        self.rect.y = 555
 
 
 class LargeObstacle(Obstacle):
     def __init__(self, image):
         self.type = random.randint(0, 2)
         super(LargeObstacle, self).__init__(image, self.type)
-        self.rect.y = 480
+        self.rect.y = 535
 
 
 class Cloud:
@@ -169,7 +198,7 @@ class Cloud:
 
 
 def main():
-    global game_speed, x_pos_bg, y_pos_bg, points, obstacles
+    global game_speed, x_pos_bg, y_pos_bg, points, goombas_ob, obstacles
     run = True
     clock = pygame.time.Clock()
     player = Player()
@@ -179,7 +208,12 @@ def main():
     y_pos_bg = 0
     points = 0
     font = pygame.font.Font('Sprites/fonts/cd2f1-36d91_sunday.ttf', 28)
+    goombas_ob = []
     obstacles = []
+    start_spawn_obstacles = False
+
+    point_got = False
+    got_point_ticker = 0
 
     def score():
         global points, game_speed
@@ -199,6 +233,13 @@ def main():
             x_pos_bg = 0
         x_pos_bg -= game_speed
 
+    def debug_display():
+        debug_font = pygame.font.Font('Sprites/fonts/cd2f1-36d91_sunday.ttf', 15)
+        text = debug_font.render("y_pos: " + str(player.player_rect.y), True, (0, 0, 0))
+        text_rect = text.get_rect()
+        text_rect.center = (980, 200)
+        SCREEN.blit(text, text_rect)
+
     while run:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -212,24 +253,52 @@ def main():
         player.draw(SCREEN)
         player.update(input_keys)
 
-        if len(obstacles) == 0:
-            obstacles.append(Goomba(GUMBA_RUN_FRAMES))
+        if pygame.time.get_ticks() > 2000:
+            start_spawn_obstacles = True
+
+        if len(goombas_ob) == 0:
+            goombas_ob.append(Goomba(GUMBA_RUN_FRAMES))
+
+        if start_spawn_obstacles:
+            if len(obstacles) == 0:
+                if random.randint(0, 1) == 0:
+                    obstacles.append(LargeObstacle(LARGE_SPIKES))
+
+        for goomba in goombas_ob:
+            goomba.draw(SCREEN)
+            goomba.update()
+            if player.player_rect.colliderect(goomba.kill_hit_box):
+                goomba.death()
+                if not point_got:
+                    points += 10
+                    game_speed += 1
+                    point_got = True
+            elif player.player_rect.colliderect(goomba.rect):
+                if point_got:
+                    pass
+                else:
+                    goomba.death()
+                    # pygame.time.delay(2000)
 
         for obstacle in obstacles:
             obstacle.draw(SCREEN)
             obstacle.update()
             if player.player_rect.colliderect(obstacle.rect):
-                pygame.draw.rect(SCREEN, (255, 0, 0), player.player_rect, 2)
-                obstacle.is_dead = True
-                obstacle.image = GUMBA_DEATH
-                points += 10
-                # game_speed += 1
-                # obstacle.death()
+                pass
+                # pygame.time.delay(2000)
+
+        if point_got:
+            if got_point_ticker >= 30:
+                point_got = False
+                got_point_ticker = 0
+            else:
+                got_point_ticker += 1
 
         cloud1.draw(SCREEN)
         cloud1.update()
 
         score()
+        # debug_display()
 
         clock.tick(30)
         pygame.display.update()
